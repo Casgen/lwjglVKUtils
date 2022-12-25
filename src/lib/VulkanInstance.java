@@ -1,10 +1,10 @@
+package lib;
+
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
-import org.lwjgl.system.MemoryUtil;
 import org.lwjgl.vulkan.*;
 
 import java.nio.ByteBuffer;
-import java.nio.IntBuffer;
 
 import static org.lwjgl.glfw.GLFWVulkan.glfwGetRequiredInstanceExtensions;
 import static org.lwjgl.system.MemoryUtil.*;
@@ -17,10 +17,10 @@ public class VulkanInstance {
 
     private VkInstance instance;
 
-    public VulkanInstance(String appName, boolean enableValidationLayers, VkDebugUtilsMessengerCallbackEXT dbgFunc) {
+    public VulkanInstance(String appName, VkDebugUtilsMessengerCallbackEXT dbgFunc) {
 
         try (MemoryStack stack = MemoryStack.stackPush()) {
-            if (enableValidationLayers && !VulkanUtils.checkValidationLayerSupport()) {
+            if (VulkanUtils.enableValidationLayers && !VulkanUtils.checkValidationLayerSupport()) {
                 throw new IllegalStateException("Validation layers requested, but some or none of them are available!");
             }
 
@@ -57,7 +57,7 @@ public class VulkanInstance {
                     .pApplicationInfo(applicationInfo);
 
 
-            if (!VulkanUtils.checkInstanceExtensionsSupport(extensionNames, enableValidationLayers))
+            if (!VulkanUtils.checkInstanceExtensionsSupport(extensionNames))
                 throw new IllegalStateException("VK Instance does not support required extensions!");
 
             PointerBuffer requiredLayers = stack.mallocPointer(VulkanUtils.validationLayers.length);
@@ -71,7 +71,7 @@ public class VulkanInstance {
             extensionNames.clear();
 
             VkDebugUtilsMessengerCreateInfoEXT dbgCreateInfo;
-            if (enableValidationLayers) {
+            if (VulkanUtils.enableValidationLayers) {
 
                 dbgCreateInfo = VkDebugUtilsMessengerCreateInfoEXT.malloc(stack)
                         .sType$Default()
@@ -109,6 +109,10 @@ public class VulkanInstance {
             instance = new VkInstance(pBuff.get(0), instanceCreateInfo);
         }
 
+    }
+
+    public VkInstance getInstance() {
+        return instance;
     }
 
 }

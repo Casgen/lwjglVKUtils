@@ -584,18 +584,25 @@ public final class HelloVulkan {
                     .queueFamilyIndex(graphics_queue_node_index)
                     .pQueuePriorities(stack.floats(0.0f));
 
+
             VkPhysicalDeviceFeatures features = VkPhysicalDeviceFeatures.calloc(stack);
             if (gpu_features.shaderClipDistance()) {
                 features.shaderClipDistance(true);
             }
 
+
             extension_names.flip();
             VkDeviceCreateInfo device = VkDeviceCreateInfo.malloc(stack)
                     .sType$Default()
                     .pNext(NULL)
-                    .flags(0)
-                    .pQueueCreateInfos(queue)
-                    .ppEnabledLayerNames(null)
+                    .flags(0);
+
+                    System.out.println(device.queueCreateInfoCount());
+
+                    device.pQueueCreateInfos(queue);
+                    System.out.println(device.queueCreateInfoCount());
+
+                    device.ppEnabledLayerNames(null)
                     .ppEnabledExtensionNames(extension_names)
                     .pEnabledFeatures(features);
 
