@@ -14,7 +14,11 @@ import static org.lwjgl.vulkan.VK10.vkCreateDevice;
 
 public class VulkanLogicalDevice {
 
-    private VkDevice logicalDevice;
+    private VkDevice vkDevice;
+
+    public VkDevice getVkDevice() {
+        return vkDevice;
+    }
 
     public VulkanLogicalDevice(VulkanPhysicalDevice physicalDevice) {
         try (MemoryStack stack = MemoryStack.stackPush()) {
@@ -78,15 +82,15 @@ public class VulkanLogicalDevice {
             //  feature to false (Vulkan doesn't like the NULL value).
             VkPhysicalDeviceFeatures features = VkPhysicalDeviceFeatures.malloc(stack);
 
-            VkDeviceCreateInfo deviceCreateInfo = VkDeviceCreateInfo.malloc(stack);
+            VkDeviceCreateInfo deviceCreateInfo = VkDeviceCreateInfo.calloc(stack);
 
-            PointerBuffer extensionProperties = stack.mallocPointer(VulkanUtils.deviceExtensions.length);
+            PointerBuffer extensionProperties = stack.mallocPointer(VulkanPhysicalDevice.deviceExtensions.length);
 
             // TODO: Careful here, there could be some other extension that maybe have been added before this.
             //  This needs to be maybe addressed later.
-            for (int i = 0; i < VulkanUtils.deviceExtensions.length; i++) {
+            for (int i = 0; i < VulkanPhysicalDevice.deviceExtensions.length; i++) {
                 extensionProperties.position(i);
-                extensionProperties.put(memASCII(VulkanUtils.deviceExtensions[i]));
+                extensionProperties.put(memASCII(VulkanPhysicalDevice.deviceExtensions[i]));
             }
 
             extensionProperties.flip();
@@ -115,7 +119,7 @@ public class VulkanLogicalDevice {
             PointerBuffer devicePtr = stack.mallocPointer(1);
 
             VulkanUtils.check(vkCreateDevice(physicalDevice.getVkPhysicalDevice(),deviceCreateInfo,null,devicePtr));
-            this.logicalDevice = new VkDevice(devicePtr.get(0),physicalDevice.getVkPhysicalDevice(), deviceCreateInfo);
+            this.vkDevice = new VkDevice(devicePtr.get(0),physicalDevice.getVkPhysicalDevice(), deviceCreateInfo);
 
         }
     }

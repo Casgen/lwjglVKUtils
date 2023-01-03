@@ -5,6 +5,7 @@ import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
 
 import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
 
 import static org.lwjgl.glfw.GLFWVulkan.glfwGetRequiredInstanceExtensions;
 import static org.lwjgl.system.MemoryUtil.*;
@@ -57,7 +58,7 @@ public class VulkanInstance {
                     .pApplicationInfo(applicationInfo);
 
 
-            if (!VulkanUtils.checkInstanceExtensionsSupport(extensionNames))
+            if (!checkInstanceExtensionsSupport(extensionNames))
                 throw new IllegalStateException("VK Instance does not support required extensions!");
 
             PointerBuffer requiredLayers = stack.mallocPointer(VulkanUtils.validationLayers.length);
@@ -109,6 +110,29 @@ public class VulkanInstance {
             instance = new VkInstance(pBuff.get(0), instanceCreateInfo);
         }
 
+    }
+
+    public static boolean checkInstanceExtensionsSupport(PointerBuffer extensionNames) {
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            IntBuffer intBuff = memAllocInt(1);
+
+            VulkanUtils.check(vkEnumerateInstanceExtensionProperties((String) null, intBuff, null));
+
+            if (intBuff.get(0) != 0) {
+                VkExtensionProperties.Buffer instance_extensions = VkExtensionProperties.malloc(intBuff.get(0), stack);
+                VulkanUtils.check(vkEnumerateInstanceExtensionProperties((String)null, intBuff, instance_extensions));
+
+                for (int i = 0; i < intBuff.get(0); i++) {
+                    instance_extensions.position(i);
+                    if (VK_EXT_DEBUG_UTILS_EXTENSION_NAME.equals(instance_extensions.extensionNameString()) &&
+                            VulkanUtils.enableValidationLayers) {
+                        extensionNames.put(memASCII(VK_EXT_DEBUG_UTILS_EXTENSION_NAME));
+                    }
+                }
+            }
+
+            return true;
+        }
     }
 
     public VkInstance getInstance() {
