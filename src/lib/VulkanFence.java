@@ -27,6 +27,10 @@ public class VulkanFence implements VulkanResource {
         }
     }
 
+    public long getFencePtr() {
+        return pFence;
+    }
+
     @Override
     public void destroy(VulkanLogicalDevice device) {
         vkDestroyFence(device.getVkDevice(),pFence,null);

@@ -30,6 +30,10 @@ public class VulkanSwapChain {
         return swapChainBuffers;
     }
 
+    public int getSwapChainImagesSize() {
+        return swapChainBuffers.length;
+    }
+
     public int getCurrentBufferIndex() {
         return currentBufferIndex;
     }

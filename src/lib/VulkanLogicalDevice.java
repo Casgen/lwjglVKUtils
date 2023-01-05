@@ -11,14 +11,14 @@ import java.nio.IntBuffer;
 import static org.lwjgl.system.MemoryUtil.NULL;
 import static org.lwjgl.system.MemoryUtil.memASCII;
 import static org.lwjgl.vulkan.VK10.vkCreateDevice;
+import static org.lwjgl.vulkan.VK10.vkGetDeviceQueue;
 
 public class VulkanLogicalDevice {
 
     private VkDevice vkDevice;
+    private VkQueue graphicsQueue;
+    private VkQueue presentQueue;
 
-    public VkDevice getVkDevice() {
-        return vkDevice;
-    }
 
     public VulkanLogicalDevice(VulkanPhysicalDevice physicalDevice) {
         try (MemoryStack stack = MemoryStack.stackPush()) {
@@ -121,6 +121,29 @@ public class VulkanLogicalDevice {
             VulkanUtils.check(vkCreateDevice(physicalDevice.getVkPhysicalDevice(),deviceCreateInfo,null,devicePtr));
             this.vkDevice = new VkDevice(devicePtr.get(0),physicalDevice.getVkPhysicalDevice(), deviceCreateInfo);
 
+            PointerBuffer pQueue = stack.mallocPointer(1);
+
+            QueueFamilyIndices indices = physicalDevice.getQueueFamilyIndices();
+
+            vkGetDeviceQueue(vkDevice, indices.getGraphicsFamily().get(), 0, pQueue);
+            graphicsQueue = new VkQueue(pQueue.get(0), vkDevice);
+
+            vkGetDeviceQueue(vkDevice, indices.getPresentFamily().get(), 0, pQueue);
+            presentQueue = new VkQueue(pQueue.get(0), vkDevice);
+
+
         }
+    }
+
+    public VkDevice getVkDevice() {
+        return vkDevice;
+    }
+
+    public VkQueue getGraphicsQueue() {
+        return graphicsQueue;
+    }
+
+    public VkQueue getPresentQueue() {
+        return presentQueue;
     }
 }

@@ -15,6 +15,10 @@ public class VulkanSemaphore implements VulkanResource {
         this(device, 0);
     }
 
+    public long getSemaphorePtr() {
+        return pSemaphore;
+    }
+
     public VulkanSemaphore(VulkanLogicalDevice device, int flags) {
         try (MemoryStack stack = MemoryStack.stackPush()) {
             VkSemaphoreCreateInfo createInfo = VkSemaphoreCreateInfo.calloc(stack);
