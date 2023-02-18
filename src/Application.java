@@ -1,9 +1,15 @@
+import abstr.Vertex;
 import lib.*;
+import org.joml.Vector2f;
+import org.joml.Vector4f;
+import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
 import render.VulkanRenderer;
 
+import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
+import java.nio.LongBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -29,6 +35,7 @@ public class Application {
     private final int maxFramesInFlight = 2;
     private List<VulkanFrame> inFlightFrames = new ArrayList<>(maxFramesInFlight);
     private Map<Integer, VulkanFrame> imagesInFlight;
+    private long vertexBuffer = 0L;
 
 
     public static VkDebugUtilsMessengerCallbackEXT dbgCb = VkDebugUtilsMessengerCallbackEXT.create(
@@ -81,12 +88,89 @@ public class Application {
         window = new VulkanWindow(width, height, "Test");
         renderer = new VulkanRenderer(window, "title", dbgCb);
         createRenderPass();
+        createVertexBuffer();
         createPipeline();
         createFrameBuffers();
         createCommandPool();
         createCommandBuffer();
         createSyncObjects();
         loop();
+    }
+
+    private int findMemoryType(int typeFilter, int properties) {
+
+        VkPhysicalDeviceMemoryProperties memProperties = VkPhysicalDeviceMemoryProperties.mallocStack();
+        vkGetPhysicalDeviceMemoryProperties(renderer.getPhysicalDevice().getVkPhysicalDevice(), memProperties);
+
+        for (int i = 0; i < memProperties.memoryTypeCount(); i++) {
+            if ((typeFilter & (1 << i)) != 0 && (memProperties.memoryTypes(i).propertyFlags() & properties) == properties) {
+                return i;
+            }
+        }
+
+        throw new RuntimeException("Failed to find suitable memory type");
+    }
+
+    private void createVertexBuffer() {
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+
+            Vertex[] vertices = new Vertex[]{
+                    new Vertex(new Vector2f(0.f, -0.5f), new Vector4f(1.f, 0.f, 0.f, 1.f)),
+                    new Vertex(new Vector2f(0.5f, 0.5f), new Vector4f(0.f, 1.f, 0.f, 1.f)),
+                    new Vertex(new Vector2f(-0.5f, 0.5f), new Vector4f(0.f, 0.f, 1.f, 1.f)),
+            };
+
+            VkBufferCreateInfo bufferCreateInfo = VkBufferCreateInfo.create();
+            bufferCreateInfo.sType$Default();
+            bufferCreateInfo.usage(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+            bufferCreateInfo.sharingMode(VK_SHARING_MODE_EXCLUSIVE);
+            bufferCreateInfo.size(Vertex.SIZE_OF * vertices.length);
+
+            LongBuffer pVertBuffer = stack.callocLong(1);
+
+            VulkanUtils.check(vkCreateBuffer(renderer.getLogicalDevice().getVkDevice(), bufferCreateInfo, null, pVertBuffer));
+
+            vertexBuffer = pVertBuffer.get(0);
+
+            VkMemoryRequirements memoryRequirements = VkMemoryRequirements.calloc(stack);
+
+            vkGetBufferMemoryRequirements(renderer.getLogicalDevice().getVkDevice(), pVertBuffer.get(0), memoryRequirements);
+
+            VkMemoryAllocateInfo allocateInfo = VkMemoryAllocateInfo.calloc(stack);
+
+            allocateInfo.sType$Default()
+                    .allocationSize(memoryRequirements.size())
+                    .memoryTypeIndex(findMemoryType(memoryRequirements.memoryTypeBits(),
+                            VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT));
+
+            LongBuffer pVertexBufferMemory = stack.mallocLong(1);
+
+            VulkanUtils.check(vkAllocateMemory(renderer.getLogicalDevice().getVkDevice(), allocateInfo, null, pVertexBufferMemory));
+
+            vkBindBufferMemory(renderer.getLogicalDevice().getVkDevice(), pVertBuffer.get(0), pVertexBufferMemory.get(0), 0);
+
+            PointerBuffer data = stack.mallocPointer(1);
+
+            vkMapMemory(renderer.getLogicalDevice().getVkDevice(), pVertexBufferMemory.get(0), 0, bufferCreateInfo.size(), 0, data);
+            {
+                memcpy(data.getByteBuffer(0, (int) bufferCreateInfo.size()), vertices);
+            }
+
+            vkUnmapMemory(renderer.getLogicalDevice().getVkDevice(), pVertexBufferMemory.get(0));
+        }
+    }
+
+
+    private void memcpy(ByteBuffer buffer, Vertex[] vertices) {
+        for (Vertex vertex : vertices) {
+            buffer.putFloat(vertex.getPos().x);
+            buffer.putFloat(vertex.getPos().y);
+
+            buffer.putFloat(vertex.getColor().x);
+            buffer.putFloat(vertex.getColor().y);
+            buffer.putFloat(vertex.getColor().z);
+            buffer.putFloat(vertex.getColor().z);
+        }
     }
 
 
@@ -139,6 +223,9 @@ public class Application {
                 buffer.beginRenderPass(renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
                 {
                     buffer.bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+
+                    buffer.bindVertexBuffers(0,vertexBuffer, 0);
+
                     buffer.draw(3, 1, 0, 0);
                 }
                 buffer.endRenderPass();
@@ -244,28 +331,24 @@ public class Application {
 
             ShaderModule[] modules = new ShaderModule[]{vertShaderModule, fragShaderModule};
 
+            // Binding the vertex Buffer ...
+            VulkanBuffers.Attribute[] attributes = new VulkanBuffers.Attribute[]{
+                    new VulkanBuffers.Attribute(0, VK_FORMAT_R32G32_SFLOAT, 0, 8),
+                    new VulkanBuffers.Attribute(1, VK_FORMAT_R32G32B32A32_SFLOAT, 8, 16),
+            };
+
+            VulkanBuffers.VertexBuffer vertexBuffer = new VulkanBuffers.VertexBuffer(0, attributes);
+
             graphicsPipeline = new VulkanGraphicsPipeline(modules);
 
-            // ===> VERTEX STAGE <===
-            graphicsPipeline.setupVertexStage();
-
-            // ===> ASSEMBLY STAGE <===
-            graphicsPipeline.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-
-            // ===> VIEWPORT & SCISSOR
-            graphicsPipeline.setupDefaultViewport(renderer.getSwapChain().getExtent());
-
-            // ===> RASTERIZATION STAGE <===
-            graphicsPipeline.setupDefaultRasterization();
-
-            // ===> MULTISAMPLING <===
-            graphicsPipeline.setupDefaultMultiSampling(VK_SAMPLE_COUNT_1_BIT, false);
-
-            // ===> COLOR BLENDING <===
-            graphicsPipeline.setupColorBlending(false);
-
-            // ===> PIPELINE CREATION <===
-            graphicsPipeline.initializePipeline(renderer.getLogicalDevice(), renderPass);
+            graphicsPipeline.setupVertexStage(vertexBuffer.createAttributeDescriptions(),
+                            vertexBuffer.createBindingDescription())                                // ===> VERTEX STAGE <===
+                    .setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)                        // ===> ASSEMBLY STAGE <===
+                    .setupDefaultViewport(renderer.getSwapChain().getExtent())                      // ===> VIEWPORT & SCISSOR <===
+                    .setupDefaultRasterization()                                                    // ===> RASTERIZATION STAGE <===
+                    .setupDefaultMultiSampling(VK_SAMPLE_COUNT_1_BIT, false)    // ===> MULTISAMPLING <===
+                    .setupColorBlending(false)                                                      // ===> COLOR BLENDING <===
+                    .initializePipeline(renderer.getLogicalDevice(), renderPass);                   // ===> PIPELINE CREATION <===
 
             vertShader.free();
             fragShader.free();

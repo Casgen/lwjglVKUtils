@@ -7,6 +7,7 @@ import org.lwjgl.vulkan.VkCommandBufferAllocateInfo;
 import org.lwjgl.vulkan.VkCommandBufferBeginInfo;
 import org.lwjgl.vulkan.VkRenderPassBeginInfo;
 
+import static org.lwjgl.system.MemoryStack.stackGet;
 import static org.lwjgl.vulkan.VK10.*;
 import static org.lwjgl.vulkan.VK10.VK_SUCCESS;
 
@@ -61,5 +62,11 @@ public class VulkanCommandBuffer {
 
     public void draw(int vertexCount, int instanceCount, int firstVertex, int firstInstance) {
         vkCmdDraw(vkCommandBuffer, vertexCount,instanceCount,firstVertex,firstInstance);
+    }
+
+    public void bindVertexBuffers(int firstBinding, long buffer, long offsets) {
+        if (buffer == 0L)
+            throw new NullPointerException("Can not bind buffer! Vertex Buffer is null!");
+        vkCmdBindVertexBuffers(vkCommandBuffer, firstBinding, stackGet().longs(buffer), stackGet().longs(offsets));
     }
 }

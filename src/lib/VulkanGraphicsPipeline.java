@@ -1,6 +1,7 @@
 package lib;
 
 import org.lwjgl.BufferUtils;
+import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
 import org.lwjgl.system.NativeResource;
@@ -57,7 +58,7 @@ public class VulkanGraphicsPipeline implements VulkanResource {
     }
 
     /**
-     * Sets up the vertex stage
+     * Sets up the vertex stage without any
      * @return this
      */
     public VulkanGraphicsPipeline setupVertexStage() {
@@ -67,10 +68,21 @@ public class VulkanGraphicsPipeline implements VulkanResource {
         return this;
     }
 
+    public VulkanGraphicsPipeline setupVertexStage(VkVertexInputAttributeDescription.Buffer attributeDesc,
+                                                   VkVertexInputBindingDescription.Buffer bindingDesc) {
+
+        vertexInputCreateInfo = VkPipelineVertexInputStateCreateInfo.calloc();
+        vertexInputCreateInfo.sType(VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO);
+        vertexInputCreateInfo.pVertexAttributeDescriptions(attributeDesc);
+        vertexInputCreateInfo.pVertexBindingDescriptions(bindingDesc);
+
+        return this;
+    }
+
     /**
      * Sets up the input assembly stage of the pipeline. Restart of primitives is disabled.
      *
-     * @param topology - What topology for the vertices will the pipeline work with (for ex. VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+     * @param topology What topology for the vertices will the pipeline work with (for ex. VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
      * @return this
      */
     public VulkanGraphicsPipeline setupInputAssembly(int topology) {
@@ -85,8 +97,8 @@ public class VulkanGraphicsPipeline implements VulkanResource {
     /**
      * Sets up the input assembly stage of the pipeline
      *
-     * @param topology               - What topology for the vertices will the pipeline work with (for ex. VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-     * @param enableRestartPrimitive - Enables or disables the ability to restart the primitive chain to avoid degenerate triangles
+     * @param topology What topology for the vertices will the pipeline work with (for ex. VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+     * @param enableRestartPrimitive Enables or disables the ability to restart the primitive chain to avoid degenerate triangles
      * @return this
      */
 
@@ -102,7 +114,7 @@ public class VulkanGraphicsPipeline implements VulkanResource {
     /**
      * Sets up a default Viewport used for the window (respectively to its width and height)
      *
-     * @param extent - a VkExtent2D (Ideally the Extent should match the resolution of the window if desired)
+     * @param extent a VkExtent2D (Ideally the Extent should match the resolution of the window if desired)
      */
     public VulkanGraphicsPipeline setupDefaultViewport(VkExtent2D extent) {
         VkViewport.Buffer viewport = VkViewport.calloc(1);
@@ -128,7 +140,7 @@ public class VulkanGraphicsPipeline implements VulkanResource {
     /**
      * Sets up the Multi Sampling state of the graphics pipeline.
      *
-     * @param sampleCount - Enum of the VK_SAMPLE_COUNT. ATTENTION: The sample count should match the render passes sample count!
+     * @param sampleCount Enum of the VK_SAMPLE_COUNT. ATTENTION: The sample count should match the render passes sample count!
      */
 
     public VulkanGraphicsPipeline setupDefaultMultiSampling(int sampleCount, boolean isSampleShadingEnabled) {
