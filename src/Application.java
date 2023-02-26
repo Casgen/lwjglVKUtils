@@ -100,7 +100,7 @@ public class Application {
     private int findMemoryType(int typeFilter, int properties) {
 
         VkPhysicalDeviceMemoryProperties memProperties = VkPhysicalDeviceMemoryProperties.mallocStack();
-        vkGetPhysicalDeviceMemoryProperties(renderer.getPhysicalDevice().getVkPhysicalDevice(), memProperties);
+        vkGetPhysicalDeviceMemoryProperties(renderer.getDevices().getVkPhysicalDevice(), memProperties);
 
         for (int i = 0; i < memProperties.memoryTypeCount(); i++) {
             if ((typeFilter & (1 << i)) != 0 && (memProperties.memoryTypes(i).propertyFlags() & properties) == properties) {
@@ -120,43 +120,20 @@ public class Application {
                     new Vertex(new Vector2f(-0.5f, 0.5f), new Vector4f(0.f, 0.f, 1.f, 1.f)),
             };
 
-            VkBufferCreateInfo bufferCreateInfo = VkBufferCreateInfo.create();
-            bufferCreateInfo.sType$Default();
-            bufferCreateInfo.usage(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-            bufferCreateInfo.sharingMode(VK_SHARING_MODE_EXCLUSIVE);
-            bufferCreateInfo.size(Vertex.SIZE_OF * vertices.length);
+            ByteBuffer buffer = stack.calloc(Vertex.SIZE_OF * vertices.length);
 
-            LongBuffer pVertBuffer = stack.callocLong(1);
+            for (Vertex vertex : vertices) {
+                buffer.putFloat(vertex.getPos().x);
+                buffer.putFloat(vertex.getPos().y);
 
-            VulkanUtils.check(vkCreateBuffer(renderer.getLogicalDevice().getVkDevice(), bufferCreateInfo, null, pVertBuffer));
-
-            vertexBuffer = pVertBuffer.get(0);
-
-            VkMemoryRequirements memoryRequirements = VkMemoryRequirements.calloc(stack);
-
-            vkGetBufferMemoryRequirements(renderer.getLogicalDevice().getVkDevice(), pVertBuffer.get(0), memoryRequirements);
-
-            VkMemoryAllocateInfo allocateInfo = VkMemoryAllocateInfo.calloc(stack);
-
-            allocateInfo.sType$Default()
-                    .allocationSize(memoryRequirements.size())
-                    .memoryTypeIndex(findMemoryType(memoryRequirements.memoryTypeBits(),
-                            VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT));
-
-            LongBuffer pVertexBufferMemory = stack.mallocLong(1);
-
-            VulkanUtils.check(vkAllocateMemory(renderer.getLogicalDevice().getVkDevice(), allocateInfo, null, pVertexBufferMemory));
-
-            vkBindBufferMemory(renderer.getLogicalDevice().getVkDevice(), pVertBuffer.get(0), pVertexBufferMemory.get(0), 0);
-
-            PointerBuffer data = stack.mallocPointer(1);
-
-            vkMapMemory(renderer.getLogicalDevice().getVkDevice(), pVertexBufferMemory.get(0), 0, bufferCreateInfo.size(), 0, data);
-            {
-                memcpy(data.getByteBuffer(0, (int) bufferCreateInfo.size()), vertices);
+                buffer.putFloat(vertex.getColor().x);
+                buffer.putFloat(vertex.getColor().y);
+                buffer.putFloat(vertex.getColor().z);
+                buffer.putFloat(vertex.getColor().z);
             }
 
-            vkUnmapMemory(renderer.getLogicalDevice().getVkDevice(), pVertexBufferMemory.get(0));
+            vertexBuffer = renderer.getDevices().createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE,
+                    Vertex.SIZE_OF * vertices.length, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, buffer);
         }
     }
 
@@ -175,11 +152,12 @@ public class Application {
 
 
     public void createFrameBuffers() {
-        frameBuffers = new VulkanFrameBuffer(renderer.getLogicalDevice(), renderPass, renderer.getSwapChain());
+        frameBuffers = new VulkanFrameBuffer(renderer.getDevices().getLogicalDevice(), renderPass, renderer.getSwapChain());
     }
 
     public void createCommandPool() {
-        commandPool = new VulkanCMDPool(renderer.getLogicalDevice(), renderer.getPhysicalDevice().getQueueFamilyIndices().getGraphicsFamily().get());
+        commandPool = new VulkanCMDPool(renderer.getDevices().getLogicalDevice(),
+                renderer.getDevices().getPhysicalDevice().getQueueFamilyIndices().getGraphicsFamily().get());
     }
 
     public void createCommandBuffer() {
@@ -192,7 +170,7 @@ public class Application {
         try (MemoryStack stack = MemoryStack.stackPush()) {
 
             for (int i = 0; i < commandBufferCount; i++) {
-                commandBuffers.add(new VulkanCommandBuffer(renderer.getLogicalDevice(), commandPool, false));
+                commandBuffers.add(new VulkanCommandBuffer(renderer.getDevices().getLogicalDevice(), commandPool, false));
             }
 
             VkCommandBufferBeginInfo cmdBufferBeginInfo = VkCommandBufferBeginInfo.calloc(stack);
@@ -241,10 +219,10 @@ public class Application {
         imagesInFlight = new HashMap<>(renderer.getSwapChain().getSwapChainImagesSize());
 
         for (int i = 0; i < maxFramesInFlight; i++) {
-            VulkanSemaphore imageAvailableSemaphore = new VulkanSemaphore(renderer.getLogicalDevice());
-            VulkanSemaphore renderFinishedSemaphore = new VulkanSemaphore(renderer.getLogicalDevice());
+            VulkanSemaphore imageAvailableSemaphore = new VulkanSemaphore(renderer.getDevices().getLogicalDevice());
+            VulkanSemaphore renderFinishedSemaphore = new VulkanSemaphore(renderer.getDevices().getLogicalDevice());
 
-            VulkanFence fence = new VulkanFence(renderer.getLogicalDevice(), VK_FENCE_CREATE_SIGNALED_BIT);
+            VulkanFence fence = new VulkanFence(renderer.getDevices().getLogicalDevice(), VK_FENCE_CREATE_SIGNALED_BIT);
 
             inFlightFrames.add(new VulkanFrame(imageAvailableSemaphore, renderFinishedSemaphore, fence));
         }
@@ -261,11 +239,11 @@ public class Application {
 
                 VulkanFrame thisFrame = inFlightFrames.get(currentFrame);
 
-                vkWaitForFences(renderer.getLogicalDevice().getVkDevice(), thisFrame.getFencePtr(), true, UINT64_MAX);
+                vkWaitForFences(renderer.getDevices().getVkDevice(), thisFrame.getFencePtr(), true, UINT64_MAX);
 
                 IntBuffer pImageIndex = stack.mallocInt(1);
 
-                vkAcquireNextImageKHR(renderer.getLogicalDevice().getVkDevice(),
+                vkAcquireNextImageKHR(renderer.getDevices().getVkDevice(),
                         renderer.getSwapChain().getSwapchainPtr(),
                         UINT64_MAX,
                         thisFrame.getImageAvailableSemaphorePtr().get(0),
@@ -274,7 +252,7 @@ public class Application {
                 final int imageIndex = pImageIndex.get(0);
 
                 if (imagesInFlight.containsKey(imageIndex)) {
-                    vkWaitForFences(renderer.getLogicalDevice().getVkDevice(), imagesInFlight.get(imageIndex).getFencePtr(), true, UINT64_MAX);
+                    vkWaitForFences(renderer.getDevices().getVkDevice(), imagesInFlight.get(imageIndex).getFencePtr(), true, UINT64_MAX);
                 }
 
                 imagesInFlight.put(imageIndex, thisFrame);
@@ -290,9 +268,9 @@ public class Application {
 
                 submitInfo.pCommandBuffers(stack.pointers(commandBuffers.get(imageIndex).getVkCommandBuffer()));
 
-                vkResetFences(renderer.getLogicalDevice().getVkDevice(), thisFrame.getFencePtr());
+                vkResetFences(renderer.getDevices().getVkDevice(), thisFrame.getFencePtr());
 
-                if (vkQueueSubmit(renderer.getLogicalDevice().getGraphicsQueue(), submitInfo, thisFrame.getFencePtr().get(0)) != VK_SUCCESS) {
+                if (vkQueueSubmit(renderer.getDevices().getLogicalDevice().getGraphicsQueue(), submitInfo, thisFrame.getFencePtr().get(0)) != VK_SUCCESS) {
                     throw new RuntimeException("Failed to submit draw command buffer");
                 }
 
@@ -308,7 +286,7 @@ public class Application {
 
                 presentInfo.pImageIndices(pImageIndex);
 
-                vkQueuePresentKHR(renderer.getLogicalDevice().getPresentQueue(), presentInfo);
+                vkQueuePresentKHR(renderer.getDevices().getLogicalDevice().getPresentQueue(), presentInfo);
 
                 currentFrame = (currentFrame + 1) % maxFramesInFlight;
 
@@ -317,7 +295,7 @@ public class Application {
         }
 
         // Wait for the device to complete all operations before releasing resources
-        vkDeviceWaitIdle(renderer.getLogicalDevice().getVkDevice());
+        vkDeviceWaitIdle(renderer.getDevices().getVkDevice());
     }
 
     public void createPipeline() {
@@ -326,8 +304,8 @@ public class Application {
             SPIRVShaderCode fragShader = compileShaderFileIntoSPIRV("shaders/fragment_shader.frag", ShaderUtils.ShaderType.FRAGMENT_SHADER);
             SPIRVShaderCode vertShader = compileShaderFileIntoSPIRV("shaders/vertex_shader.vert", ShaderUtils.ShaderType.VERTEX_SHADER);
 
-            ShaderModule vertShaderModule = createShaderModule(renderer.getLogicalDevice(), vertShader);
-            ShaderModule fragShaderModule = createShaderModule(renderer.getLogicalDevice(), fragShader);
+            ShaderModule vertShaderModule = createShaderModule(renderer.getDevices().getLogicalDevice(), vertShader);
+            ShaderModule fragShaderModule = createShaderModule(renderer.getDevices().getLogicalDevice(), fragShader);
 
             ShaderModule[] modules = new ShaderModule[]{vertShaderModule, fragShaderModule};
 
@@ -348,7 +326,7 @@ public class Application {
                     .setupDefaultRasterization()                                                    // ===> RASTERIZATION STAGE <===
                     .setupDefaultMultiSampling(VK_SAMPLE_COUNT_1_BIT, false)    // ===> MULTISAMPLING <===
                     .setupColorBlending(false)                                                      // ===> COLOR BLENDING <===
-                    .initializePipeline(renderer.getLogicalDevice(), renderPass);                   // ===> PIPELINE CREATION <===
+                    .initializePipeline(renderer.getDevices().getLogicalDevice(), renderPass);      // ===> PIPELINE CREATION <===
 
             vertShader.free();
             fragShader.free();
@@ -361,7 +339,7 @@ public class Application {
             colorAttachment.samples(VK_SAMPLE_COUNT_1_BIT);
             colorAttachment.flags(0);
 
-            int format = renderer.getPhysicalDevice().getSwapChainSupportDetails().chooseSwapSurfaceFormat().format();
+            int format = renderer.getDevices().getPhysicalDevice().getSwapChainSupportDetails().chooseSwapSurfaceFormat().format();
 
             colorAttachment.format(format);
             colorAttachment.loadOp(VK_ATTACHMENT_LOAD_OP_CLEAR);
@@ -391,7 +369,7 @@ public class Application {
             dependencies.srcAccessMask(0);
             dependencies.dstAccessMask(VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT);
 
-            renderPass = new VulkanRenderPass(renderer.getLogicalDevice(), colorAttachment, subpass, dependencies);
+            renderPass = new VulkanRenderPass(renderer.getDevices().getLogicalDevice(), colorAttachment, subpass, dependencies);
         }
     }
 }

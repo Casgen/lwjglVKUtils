@@ -5,6 +5,7 @@ import org.lwjgl.vulkan.VkExtensionProperties;
 import org.lwjgl.vulkan.VkPhysicalDevice;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
+import org.lwjgl.vulkan.VkPhysicalDeviceMemoryProperties;
 
 import java.nio.IntBuffer;
 import java.util.ArrayList;
@@ -63,7 +64,7 @@ public class VulkanPhysicalDevice {
                 availablePhysicalDevices.position(i);
 
                 device = new VkPhysicalDevice(availablePhysicalDevices.get(i),instance.getInstance());
-                QueueFamilyIndices indices = new QueueFamilyIndices(device, surface);
+                QueueFamilyIndices indices = new QueueFamilyIndices(device, surface.getSurfacePtr());
 
                 if (isDeviceSuitable(device, surface, indices)) {
                     vkPhysicalDevice = device;
@@ -115,5 +116,19 @@ public class VulkanPhysicalDevice {
 
             return requiredExtensions.isEmpty();
         }
+    }
+
+    public int findMemoryType(int typeFilter, int properties) {
+
+        VkPhysicalDeviceMemoryProperties memProperties = VkPhysicalDeviceMemoryProperties.mallocStack();
+        vkGetPhysicalDeviceMemoryProperties(vkPhysicalDevice, memProperties);
+
+        for (int i = 0; i < memProperties.memoryTypeCount(); i++) {
+            if ((typeFilter & (1 << i)) != 0 && (memProperties.memoryTypes(i).propertyFlags() & properties) == properties) {
+                return i;
+            }
+        }
+
+        throw new RuntimeException("Failed to find suitable memory type");
     }
 }

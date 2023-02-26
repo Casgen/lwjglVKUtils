@@ -1,9 +1,16 @@
 package lib;
 
-import org.lwjgl.vulkan.VkVertexInputAttributeDescription;
-import org.lwjgl.vulkan.VkVertexInputBindingDescription;
+import abstr.Vertex;
+import org.joml.Vector2f;
+import org.joml.Vector4f;
+import org.lwjgl.PointerBuffer;
+import org.lwjgl.system.MemoryStack;
+import org.lwjgl.vulkan.*;
 
-import static org.lwjgl.vulkan.VK10.VK_VERTEX_INPUT_RATE_VERTEX;
+import java.nio.ByteBuffer;
+import java.nio.LongBuffer;
+
+import static org.lwjgl.vulkan.VK10.*;
 
 public class VulkanBuffers {
 

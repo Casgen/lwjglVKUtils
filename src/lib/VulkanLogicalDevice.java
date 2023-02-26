@@ -1,5 +1,6 @@
 package lib;
 
+import abstr.Vertex;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
@@ -7,11 +8,11 @@ import org.lwjgl.vulkan.*;
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
+import java.nio.LongBuffer;
 
 import static org.lwjgl.system.MemoryUtil.NULL;
 import static org.lwjgl.system.MemoryUtil.memASCII;
-import static org.lwjgl.vulkan.VK10.vkCreateDevice;
-import static org.lwjgl.vulkan.VK10.vkGetDeviceQueue;
+import static org.lwjgl.vulkan.VK10.*;
 
 public class VulkanLogicalDevice {
 
@@ -25,7 +26,7 @@ public class VulkanLogicalDevice {
 
             //Create a Device queue
             FloatBuffer queuePriority = stack.mallocFloat(1);
-            queuePriority.put(0,1.f);
+            queuePriority.put(0, 1.f);
 
             // TODO: This can change in further development as more queue types will be needed
             VkDeviceQueueCreateInfo.Buffer deviceQueueCreateInfos = VkDeviceQueueCreateInfo.malloc(
@@ -51,7 +52,7 @@ public class VulkanLogicalDevice {
                         // No need for isPresent. The isComplete function does this already for us
                         .queueFamilyIndex(physicalDevice.getQueueFamilyIndices().getGraphicsFamily().get());
 
-                deviceQueueCreateInfos.put(0,createInfo);
+                deviceQueueCreateInfos.put(0, createInfo);
             } else {
                 // TODO: This can change in further development as more queue types will be needed
                 queueIndices = stack.mallocInt(2);
@@ -103,8 +104,7 @@ public class VulkanLogicalDevice {
 
             System.out.println(deviceCreateInfo.queueCreateInfoCount());
 
-            if (VulkanUtils.enableValidationLayers)
-            {
+            if (VulkanUtils.enableValidationLayers) {
                 PointerBuffer requiredLayers = stack.mallocPointer(VulkanUtils.validationLayers.length);
 
                 for (int i = 0; i < VulkanUtils.validationLayers.length; i++) {
@@ -118,8 +118,8 @@ public class VulkanLogicalDevice {
             // With this you then construct the VkDevice with the 'new' keyword.
             PointerBuffer devicePtr = stack.mallocPointer(1);
 
-            VulkanUtils.check(vkCreateDevice(physicalDevice.getVkPhysicalDevice(),deviceCreateInfo,null,devicePtr));
-            this.vkDevice = new VkDevice(devicePtr.get(0),physicalDevice.getVkPhysicalDevice(), deviceCreateInfo);
+            VulkanUtils.check(vkCreateDevice(physicalDevice.getVkPhysicalDevice(), deviceCreateInfo, null, devicePtr));
+            this.vkDevice = new VkDevice(devicePtr.get(0), physicalDevice.getVkPhysicalDevice(), deviceCreateInfo);
 
             PointerBuffer pQueue = stack.mallocPointer(1);
 
@@ -134,6 +134,10 @@ public class VulkanLogicalDevice {
 
         }
     }
+
+
+
+
 
     public VkDevice getVkDevice() {
         return vkDevice;

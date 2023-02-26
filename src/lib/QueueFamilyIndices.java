@@ -10,14 +10,12 @@ import static org.lwjgl.vulkan.VK10.*;
 import java.nio.IntBuffer;
 import java.util.Optional;
 
-import static org.lwjgl.system.MemoryUtil.*;
-
 public class QueueFamilyIndices {
-    private Optional<Integer> graphicsFamily = Optional.empty();
 
+    private Optional<Integer> graphicsFamily = Optional.empty();
     private Optional<Integer> presentFamily = Optional.empty();
 
-    public QueueFamilyIndices(VkPhysicalDevice device, VulkanSurface surface) {
+    public QueueFamilyIndices(VkPhysicalDevice device, long surface) {
 
         try (MemoryStack stack = MemoryStack.stackPush()) {
 
@@ -43,7 +41,7 @@ public class QueueFamilyIndices {
                     graphicsFamily = Optional.of(i);
                 }
 
-                vkGetPhysicalDeviceSurfaceSupportKHR(device,i,surface.getSurfacePtr(),presentSupport);
+                vkGetPhysicalDeviceSurfaceSupportKHR(device,i,surface,presentSupport);
 
                 /* If the queue supports presentation, get the index of that queue and store it.
                    NOTE: The queueFamilyIndex member of each element of pQueueCreateInfos must be

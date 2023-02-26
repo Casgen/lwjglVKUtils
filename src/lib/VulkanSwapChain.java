@@ -78,10 +78,10 @@ public class VulkanSwapChain {
         public SwapChainBuffer() {}
     }
 
-    public VulkanSwapChain(VulkanPhysicalDevice physicalDevice, VulkanLogicalDevice logicalDevice, VulkanSurface surface, VulkanWindow window) {
+    public VulkanSwapChain(VulkanDevices devices, VulkanSurface surface, VulkanWindow window) {
         try (MemoryStack stack = MemoryStack.stackPush()) {
 
-            SwapChainSupportDetails swapChainSupportDetails = physicalDevice.getSwapChainSupportDetails();
+            SwapChainSupportDetails swapChainSupportDetails = devices.getPhysicalDevice().getSwapChainSupportDetails();
 
             VkSurfaceFormatKHR.Buffer surfaceFormat = VkSurfaceFormatKHR.malloc(1, stack);
             surfaceFormat.put(0, swapChainSupportDetails.chooseSwapSurfaceFormat());
@@ -114,7 +114,7 @@ public class VulkanSwapChain {
                     .imageUsage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
                     .imageExtent(extent.get(0));
 
-            QueueFamilyIndices indices = physicalDevice.getQueueFamilyIndices();
+            QueueFamilyIndices indices = devices.getPhysicalDevice().getQueueFamilyIndices();
 
             if (indices.isQueueIndexSame()) {
 
@@ -144,17 +144,17 @@ public class VulkanSwapChain {
 
             LongBuffer tempPtr = stack.mallocLong(1);
 
-            VulkanUtils.check(vkCreateSwapchainKHR(logicalDevice.getVkDevice(), swapChainCreateInfo, null, tempPtr));
+            VulkanUtils.check(vkCreateSwapchainKHR(devices.getVkDevice(), swapChainCreateInfo, null, tempPtr));
 
             swapchainPtr = tempPtr.get(0);
 
             //Get the number of swapchain images
             IntBuffer imgCount = stack.mallocInt(1);
-            VulkanUtils.check(vkGetSwapchainImagesKHR(logicalDevice.getVkDevice(), swapchainPtr, imgCount, null));
+            VulkanUtils.check(vkGetSwapchainImagesKHR(devices.getVkDevice(), swapchainPtr, imgCount, null));
 
             // Get the pointers to every swapchain image.
             LongBuffer swapChainImgPtrs = stack.mallocLong(imgCount.get(0));
-            VulkanUtils.check(vkGetSwapchainImagesKHR(logicalDevice.getVkDevice(), swapchainPtr, imgCount, swapChainImgPtrs));
+            VulkanUtils.check(vkGetSwapchainImagesKHR(devices.getVkDevice(), swapchainPtr, imgCount, swapChainImgPtrs));
 
             swapChainBuffers = new SwapChainBuffer[imgCount.get(0)];
 
@@ -185,7 +185,7 @@ public class VulkanSwapChain {
                                 .baseArrayLayer(0)
                                 .layerCount(1));
 
-                VulkanUtils.check(vkCreateImageView(logicalDevice.getVkDevice(),colorAttachmentView, null,imgViewPtr));
+                VulkanUtils.check(vkCreateImageView(devices.getVkDevice(),colorAttachmentView, null,imgViewPtr));
                 swapChainBuffers[i].view = imgViewPtr.get(0);
             }
         }
