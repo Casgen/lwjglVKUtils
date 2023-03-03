@@ -5,6 +5,7 @@ import org.joml.Vector2f;
 import org.joml.Vector4f;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
+import org.lwjgl.system.MemoryUtil;
 import org.lwjgl.vulkan.*;
 
 import java.nio.ByteBuffer;
@@ -13,6 +14,50 @@ import java.nio.LongBuffer;
 import static org.lwjgl.vulkan.VK10.*;
 
 public class VulkanBuffers {
+
+    static public class Buffer implements VulkanResource {
+        public long pBuffer;
+        public long pDeviceMemory;
+        public long size;
+
+        @Override
+        public void destroy(VulkanLogicalDevice device) {
+            vkDestroyBuffer(device.getVkDevice(), pBuffer, null);
+            vkFreeMemory(device.getVkDevice(), pDeviceMemory, null);
+        }
+
+        public Buffer(long pBuffer, long pDeviceMemory, long size) {
+            this.pBuffer = pBuffer;
+            this.pDeviceMemory = pDeviceMemory;
+            this.size = size;
+        }
+
+        public Buffer() {
+
+        }
+
+
+        public void setData(VulkanLogicalDevice device, ByteBuffer srcData) {
+
+            try (MemoryStack stack = MemoryStack.stackPush()){
+
+                PointerBuffer dest = stack.mallocPointer(1);
+
+                if (pDeviceMemory == MemoryUtil.NULL || pBuffer == MemoryUtil.NULL)
+                    throw new NullPointerException("VkDeviceMemory or VkBuffer is null!");
+
+                vkMapMemory(device.getVkDevice(), pDeviceMemory, 0, srcData.capacity(), 0, dest);
+                {
+                    dest.getByteBuffer(0, srcData.capacity()).put(srcData);
+                }
+
+                vkUnmapMemory(device.getVkDevice(), pDeviceMemory);
+
+            }
+
+        }
+
+    }
 
     static public class Attribute {
 

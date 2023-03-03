@@ -1,14 +1,14 @@
 package lib;
 
-import org.lwjgl.PointerBuffer;
+import exc.MemoryAllocationException;
 import org.lwjgl.system.MemoryStack;
+import org.lwjgl.system.MemoryUtil;
 import org.lwjgl.vulkan.*;
 
 import java.nio.ByteBuffer;
 import java.nio.LongBuffer;
 
 import static org.lwjgl.vulkan.VK10.*;
-import static org.lwjgl.vulkan.VK10.vkUnmapMemory;
 
 public class VulkanDevices {
 
@@ -38,58 +38,74 @@ public class VulkanDevices {
 
 
     /**
-     * Creates a VkBuffer and binds the device memory to it.
-     *
-     * @param usage - What purpose will the buffer be used for.
-     * @param sharingMode - Sets how the buffer will be shared. That means if it's going to be exclusive to only one
-     *                    family queue or be shared between multiple queues.
-     * @param size - Size of the data in bytes
-     * @param memoryProperty - Sets the properties of the memory (How it should behave)
+     * Creates a VkBuffer, binds the device memory to it and fills it up with the given data.
+     * @implNote The size is determined by the ByteBuffer capacity.
+     * @param usage What purpose will the buffer be used for.
+     * @param sharingMode Sets how the buffer will be shared. That means if it's going to be exclusive to only one
+     *                       family queue or be shared between multiple queues.
+     * @param memoryProperty Sets the properties of the memory (How it should behave)
+     * @param srcData A buffer of pre-filled data
      * @return A pointer to the newly created buffer;
      */
-    public long createBuffer(int usage, int sharingMode, int size, int memoryProperty, ByteBuffer srcData) {
-        try (MemoryStack stack = MemoryStack.stackPush()) {
+    public VulkanBuffers.Buffer createBuffer(int usage, int sharingMode, int memoryProperty, ByteBuffer srcData) {
+        // DON'T FORGET TO REWIND TO SET THE POSITION TO 0!
+        srcData.rewind();
 
-            // DON'T FORGET TO REWIND!
-            srcData.rewind();
+        VulkanBuffers.Buffer vertexBuffer = createBuffer(usage, sharingMode, srcData.capacity(), memoryProperty);
+        vertexBuffer.setData(logicalDevice, srcData);
 
-            VkBufferCreateInfo bufferCreateInfo = VkBufferCreateInfo.create();
-            bufferCreateInfo.sType$Default()
-                    .usage(usage)
-                    .sharingMode(sharingMode)
-                    .size(size);
-
-            LongBuffer pBuffer = stack.callocLong(1);
-
-            VulkanUtils.check(vkCreateBuffer(logicalDevice.getVkDevice(), bufferCreateInfo, null, pBuffer));
-
-            VkMemoryRequirements memoryRequirements = VkMemoryRequirements.calloc(stack);
-
-            vkGetBufferMemoryRequirements(logicalDevice.getVkDevice(), pBuffer.get(0), memoryRequirements);
-
-            VkMemoryAllocateInfo allocateInfo = VkMemoryAllocateInfo.calloc(stack);
-
-            allocateInfo.sType$Default()
-                    .allocationSize(memoryRequirements.size())
-                    .memoryTypeIndex(physicalDevice.findMemoryType(memoryRequirements.memoryTypeBits(), memoryProperty));
-
-            LongBuffer pVertexBufferMemory = stack.mallocLong(1);
-
-            VulkanUtils.check(vkAllocateMemory(logicalDevice.getVkDevice(), allocateInfo, null, pVertexBufferMemory));
-
-            vkBindBufferMemory(logicalDevice.getVkDevice(), pBuffer.get(0), pVertexBufferMemory.get(0), 0);
-
-            PointerBuffer dest = stack.mallocPointer(1);
-
-            vkMapMemory(logicalDevice.getVkDevice(), pVertexBufferMemory.get(0), 0, bufferCreateInfo.size(), 0, dest);
-            {
-                dest.getByteBuffer(0, (int) bufferCreateInfo.size()).put(srcData);
-            }
-
-            vkUnmapMemory(logicalDevice.getVkDevice(), pVertexBufferMemory.get(0));
-
-            return pBuffer.get(0);
-        }
+        return vertexBuffer;
     }
+
+    /**
+     * Creates a VkBuffer and binds the device memory to it.
+     *
+     * @param usage What purpose will the buffer be used for.
+     * @param sharingMode Sets how the buffer will be shared. That means if it's going to be exclusive to only one
+     *                       family queue or be shared between multiple queues.
+     * @param size Size of the data in bytes
+     * @param memoryProperty Sets the properties of the memory (How it should behave)
+     * @return A pointer to the newly created buffer;
+     */
+        public VulkanBuffers.Buffer createBuffer(int usage, int sharingMode, int size, int memoryProperty) {
+            try (MemoryStack stack = MemoryStack.stackPush()) {
+
+                VkBufferCreateInfo bufferCreateInfo = VkBufferCreateInfo.create();
+                bufferCreateInfo.sType$Default()
+                        .usage(usage)
+                        .sharingMode(sharingMode)
+                        .size(size);
+
+                LongBuffer pBuffer = stack.callocLong(1);
+
+                VulkanUtils.check(vkCreateBuffer(getVkDevice(), bufferCreateInfo, null, pBuffer));
+
+                VkMemoryRequirements memoryRequirements = VkMemoryRequirements.calloc(stack);
+
+                vkGetBufferMemoryRequirements(getVkDevice(), pBuffer.get(0), memoryRequirements);
+
+                VkMemoryAllocateInfo allocateInfo = VkMemoryAllocateInfo.calloc(stack);
+
+                allocateInfo.sType$Default()
+                        .allocationSize(memoryRequirements.size())
+                        .memoryTypeIndex(physicalDevice.findMemoryType(memoryRequirements.memoryTypeBits(), memoryProperty));
+
+
+                LongBuffer pBufferMemory = stack.mallocLong(1);
+
+                VulkanUtils.check(vkAllocateMemory(getVkDevice(), allocateInfo, null, pBufferMemory));
+
+                if (pBufferMemory.get(0) == MemoryUtil.NULL)
+                    throw new MemoryAllocationException("Failed to allocate Memory! vkAllocateMemory returned a null pointer!");
+
+                vkBindBufferMemory(getVkDevice(), pBuffer.get(0), pBufferMemory.get(0), 0);
+
+                VulkanBuffers.Buffer vertexBuffer;
+                vertexBuffer = new VulkanBuffers.Buffer(pBuffer.get(0), pBufferMemory.get(0), bufferCreateInfo.size());
+
+                return vertexBuffer;
+            }
+    }
+
 
 }

@@ -35,7 +35,7 @@ public class Application {
     private final int maxFramesInFlight = 2;
     private List<VulkanFrame> inFlightFrames = new ArrayList<>(maxFramesInFlight);
     private Map<Integer, VulkanFrame> imagesInFlight;
-    private long vertexBuffer = 0L;
+    private VulkanBuffers.Buffer vertexBuffer;
 
 
     public static VkDebugUtilsMessengerCallbackEXT dbgCb = VkDebugUtilsMessengerCallbackEXT.create(
@@ -97,20 +97,6 @@ public class Application {
         loop();
     }
 
-    private int findMemoryType(int typeFilter, int properties) {
-
-        VkPhysicalDeviceMemoryProperties memProperties = VkPhysicalDeviceMemoryProperties.mallocStack();
-        vkGetPhysicalDeviceMemoryProperties(renderer.getDevices().getVkPhysicalDevice(), memProperties);
-
-        for (int i = 0; i < memProperties.memoryTypeCount(); i++) {
-            if ((typeFilter & (1 << i)) != 0 && (memProperties.memoryTypes(i).propertyFlags() & properties) == properties) {
-                return i;
-            }
-        }
-
-        throw new RuntimeException("Failed to find suitable memory type");
-    }
-
     private void createVertexBuffer() {
         try (MemoryStack stack = MemoryStack.stackPush()) {
 
@@ -129,11 +115,11 @@ public class Application {
                 buffer.putFloat(vertex.getColor().x);
                 buffer.putFloat(vertex.getColor().y);
                 buffer.putFloat(vertex.getColor().z);
-                buffer.putFloat(vertex.getColor().z);
+                buffer.putFloat(vertex.getColor().w);
             }
 
             vertexBuffer = renderer.getDevices().createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE,
-                    Vertex.SIZE_OF * vertices.length, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, buffer);
+                    VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, buffer);
         }
     }
 
@@ -202,7 +188,7 @@ public class Application {
                 {
                     buffer.bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
-                    buffer.bindVertexBuffers(0,vertexBuffer, 0);
+                    buffer.bindVertexBuffers(0, vertexBuffer.pBuffer, 0);
 
                     buffer.draw(3, 1, 0, 0);
                 }
@@ -296,6 +282,8 @@ public class Application {
 
         // Wait for the device to complete all operations before releasing resources
         vkDeviceWaitIdle(renderer.getDevices().getVkDevice());
+
+        vertexBuffer.destroy(renderer.getDevices().getLogicalDevice());
     }
 
     public void createPipeline() {
