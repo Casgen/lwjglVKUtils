@@ -15,7 +15,7 @@ public class VulkanCommandBuffer {
 
     private VkCommandBuffer vkCommandBuffer;
 
-    public VulkanCommandBuffer(VulkanLogicalDevice device, VulkanCMDPool commandPool, boolean isSecondary) {
+    public VulkanCommandBuffer(VulkanLogicalDevice device, VulkanCmdPool commandPool, boolean isSecondary) {
 
         try (MemoryStack stack = MemoryStack.stackPush()) {
             VkCommandBufferAllocateInfo allocInfo = VkCommandBufferAllocateInfo.callocStack(stack);

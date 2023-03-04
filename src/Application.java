@@ -2,14 +2,12 @@ import abstr.Vertex;
 import lib.*;
 import org.joml.Vector2f;
 import org.joml.Vector4f;
-import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
 import render.VulkanRenderer;
 
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
-import java.nio.LongBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -29,7 +27,7 @@ public class Application {
     private VulkanRenderer renderer;
     private VulkanGraphicsPipeline graphicsPipeline;
     private VulkanFrameBuffer frameBuffers;
-    private VulkanCMDPool commandPool;
+    private VulkanCmdPool commandPool;
     private List<VulkanCommandBuffer> commandBuffers;
 
     private final int maxFramesInFlight = 2;
@@ -118,8 +116,15 @@ public class Application {
                 buffer.putFloat(vertex.getColor().w);
             }
 
-            vertexBuffer = renderer.getDevices().createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE,
-                    VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, buffer);
+            // Used only temporarily for setting the data in the RAM (visible by the CPU), which then will be copied to the GPU
+            VulkanBuffers.Buffer stagingBuffer = renderer.getDevices().createBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_SHARING_MODE_EXCLUSIVE,
+                    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, buffer);
+
+            vertexBuffer = renderer.getDevices().createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_SHARING_MODE_EXCLUSIVE,
+                    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, buffer.capacity());
+
+            renderer.getDevices().copyBuffer(stagingBuffer, vertexBuffer,buffer.capacity());
+
         }
     }
 
@@ -142,7 +147,7 @@ public class Application {
     }
 
     public void createCommandPool() {
-        commandPool = new VulkanCMDPool(renderer.getDevices().getLogicalDevice(),
+        commandPool = new VulkanCmdPool(renderer.getDevices().getLogicalDevice(),
                 renderer.getDevices().getPhysicalDevice().getQueueFamilyIndices().getGraphicsFamily().get());
     }
 

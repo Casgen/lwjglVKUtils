@@ -10,6 +10,7 @@ import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 
+import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.system.MemoryUtil.NULL;
 import static org.lwjgl.system.MemoryUtil.memASCII;
 import static org.lwjgl.vulkan.VK10.*;
@@ -136,9 +137,6 @@ public class VulkanLogicalDevice {
     }
 
 
-
-
-
     public VkDevice getVkDevice() {
         return vkDevice;
     }
@@ -150,4 +148,5 @@ public class VulkanLogicalDevice {
     public VkQueue getPresentQueue() {
         return presentQueue;
     }
+
 }
