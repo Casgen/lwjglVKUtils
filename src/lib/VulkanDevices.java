@@ -152,7 +152,7 @@ public class VulkanDevices {
             VkCommandBufferAllocateInfo allocInfo = VkCommandBufferAllocateInfo.callocStack(stack);
             allocInfo.sType(VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO);
             allocInfo.level(VK_COMMAND_BUFFER_LEVEL_PRIMARY);
-            allocInfo.commandPool(cmdPool.getCommandPoolPtr());
+            allocInfo.commandPool(cmdPool.pCommandPool);
             allocInfo.commandBufferCount(1);
 
             PointerBuffer pCommandBuffer = stack.mallocPointer(1);
@@ -181,7 +181,7 @@ public class VulkanDevices {
 
             vkQueueWaitIdle(logicalDevice.getGraphicsQueue());
 
-            vkFreeCommandBuffers(getVkDevice(), cmdPool.getCommandPoolPtr(), pCommandBuffer);
+            vkFreeCommandBuffers(getVkDevice(), cmdPool.pCommandPool, pCommandBuffer);
         }
     }
 

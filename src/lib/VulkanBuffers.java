@@ -24,6 +24,10 @@ public class VulkanBuffers {
         public void destroy(VulkanLogicalDevice device) {
             vkDestroyBuffer(device.getVkDevice(), pBuffer, null);
             vkFreeMemory(device.getVkDevice(), pDeviceMemory, null);
+
+            pBuffer = MemoryUtil.NULL;
+            pDeviceMemory = MemoryUtil.NULL;
+            size = 0L;
         }
 
         public Buffer(long pBuffer, long pDeviceMemory, long size) {

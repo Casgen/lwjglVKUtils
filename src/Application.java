@@ -34,6 +34,7 @@ public class Application {
     private List<VulkanFrame> inFlightFrames = new ArrayList<>(maxFramesInFlight);
     private Map<Integer, VulkanFrame> imagesInFlight;
     private VulkanBuffers.Buffer vertexBuffer;
+    private VulkanBuffers.Buffer indexBuffer;
 
 
     public static VkDebugUtilsMessengerCallbackEXT dbgCb = VkDebugUtilsMessengerCallbackEXT.create(
@@ -99,31 +100,54 @@ public class Application {
         try (MemoryStack stack = MemoryStack.stackPush()) {
 
             Vertex[] vertices = new Vertex[]{
-                    new Vertex(new Vector2f(0.f, -0.5f), new Vector4f(1.f, 0.f, 0.f, 1.f)),
+                    new Vertex(new Vector2f(-0.5f, -0.5f), new Vector4f(0.f, 0.f, 1.f, 1.f)),
+                    new Vertex(new Vector2f(-0.5f, 0.5f), new Vector4f(1.f, 0.f, 0.f, 1.f)),
                     new Vertex(new Vector2f(0.5f, 0.5f), new Vector4f(0.f, 1.f, 0.f, 1.f)),
-                    new Vertex(new Vector2f(-0.5f, 0.5f), new Vector4f(0.f, 0.f, 1.f, 1.f)),
+                    new Vertex(new Vector2f(0.5f, -0.5f), new Vector4f(1.f, 1.f, 0.f, 1.f)),
             };
 
-            ByteBuffer buffer = stack.calloc(Vertex.SIZE_OF * vertices.length);
+            ByteBuffer vertexData = stack.calloc(Vertex.SIZE_OF * vertices.length);
 
             for (Vertex vertex : vertices) {
-                buffer.putFloat(vertex.getPos().x);
-                buffer.putFloat(vertex.getPos().y);
+                vertexData.putFloat(vertex.getPos().x);
+                vertexData.putFloat(vertex.getPos().y);
 
-                buffer.putFloat(vertex.getColor().x);
-                buffer.putFloat(vertex.getColor().y);
-                buffer.putFloat(vertex.getColor().z);
-                buffer.putFloat(vertex.getColor().w);
+                vertexData.putFloat(vertex.getColor().x);
+                vertexData.putFloat(vertex.getColor().y);
+                vertexData.putFloat(vertex.getColor().z);
+                vertexData.putFloat(vertex.getColor().w);
             }
 
+            // ------------------ VERTEX BUFFER ---------------------
             // Used only temporarily for setting the data in the RAM (visible by the CPU), which then will be copied to the GPU
             VulkanBuffers.Buffer stagingBuffer = renderer.getDevices().createBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_SHARING_MODE_EXCLUSIVE,
-                    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, buffer);
+                    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, vertexData);
 
             vertexBuffer = renderer.getDevices().createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_SHARING_MODE_EXCLUSIVE,
-                    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, buffer.capacity());
+                    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexData.capacity());
 
-            renderer.getDevices().copyBuffer(stagingBuffer, vertexBuffer,buffer.capacity());
+            renderer.getDevices().copyBuffer(stagingBuffer, vertexBuffer,vertexData.capacity());
+            stagingBuffer.destroy(renderer.getDevices().getLogicalDevice());
+
+            // ------------------ INDEX BUFFER ---------------------
+
+            ByteBuffer indexData = stack.calloc(6 * 4);
+
+            indexData.putInt(0);
+            indexData.putInt(2);
+            indexData.putInt(1);
+            indexData.putInt(0);
+            indexData.putInt(3);
+            indexData.putInt(2);
+
+            stagingBuffer = renderer.getDevices().createBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_SHARING_MODE_EXCLUSIVE,
+                    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, indexData);
+
+            indexBuffer = renderer.getDevices().createBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_SHARING_MODE_EXCLUSIVE,
+                    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexData.capacity());
+            renderer.getDevices().copyBuffer(stagingBuffer, indexBuffer, indexData.capacity());
+
+            stagingBuffer.destroy(renderer.getDevices().getLogicalDevice());
 
         }
     }
@@ -192,10 +216,9 @@ public class Application {
                 buffer.beginRenderPass(renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
                 {
                     buffer.bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-
                     buffer.bindVertexBuffers(0, vertexBuffer.pBuffer, 0);
-
-                    buffer.draw(3, 1, 0, 0);
+                    buffer.bindIndexBuffer(indexBuffer, VK_INDEX_TYPE_UINT32);
+                    buffer.drawIndexed(6);
                 }
                 buffer.endRenderPass();
 
