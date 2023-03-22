@@ -15,7 +15,7 @@ public class VulkanSurface {
         try (MemoryStack stack = MemoryStack.stackPush()) {
             LongBuffer pointer = stack.mallocLong(1);
 
-            VulkanUtils.check(glfwCreateWindowSurface(instance.getInstance(),window.getWindowPtr(), null, pointer));
+            VulkanUtils.check(glfwCreateWindowSurface(instance.getVkInstance(),window.getWindowPtr(), null, pointer));
             surfacePtr = pointer.get(0);
         }
     }

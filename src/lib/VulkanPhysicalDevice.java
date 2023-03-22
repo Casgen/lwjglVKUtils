@@ -46,7 +46,7 @@ public class VulkanPhysicalDevice {
         try (MemoryStack stack = MemoryStack.stackPush()) {
             IntBuffer deviceCount = stack.mallocInt(1);
 
-            VulkanUtils.check(vkEnumeratePhysicalDevices(instance.getInstance(), deviceCount, null));
+            VulkanUtils.check(vkEnumeratePhysicalDevices(instance.getVkInstance(), deviceCount, null));
 
             PointerBuffer availablePhysicalDevices = stack.mallocPointer(deviceCount.get(0));
 
@@ -54,7 +54,7 @@ public class VulkanPhysicalDevice {
                 throw new NoSupportedPhysicalDeviceException();
             }
 
-            VulkanUtils.check(vkEnumeratePhysicalDevices(instance.getInstance(),deviceCount,availablePhysicalDevices));
+            VulkanUtils.check(vkEnumeratePhysicalDevices(instance.getVkInstance(),deviceCount,availablePhysicalDevices));
 
             VkPhysicalDevice device;
 
@@ -63,7 +63,7 @@ public class VulkanPhysicalDevice {
             for (int i = 0; i < availablePhysicalDevices.capacity(); i++) {
                 availablePhysicalDevices.position(i);
 
-                device = new VkPhysicalDevice(availablePhysicalDevices.get(i),instance.getInstance());
+                device = new VkPhysicalDevice(availablePhysicalDevices.get(i),instance.getVkInstance());
                 QueueFamilyIndices indices = new QueueFamilyIndices(device, surface.getSurfacePtr());
 
                 if (isDeviceSuitable(device, surface, indices)) {

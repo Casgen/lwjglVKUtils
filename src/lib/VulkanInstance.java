@@ -135,7 +135,7 @@ public class VulkanInstance {
         }
     }
 
-    public VkInstance getInstance() {
+    public VkInstance getVkInstance() {
         return instance;
     }
 
